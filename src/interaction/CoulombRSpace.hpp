@@ -85,15 +85,21 @@ namespace espressopp {
       real _computeEnergy(const Particle& p1, const Particle& p2) const {
         Real3D dist = p1.position() - p2.position();
         real abs_dist = dist.abs();
-        return ( prefactor * p1.q() * p2.q() * erfc(alpha*abs_dist) / abs_dist );
+        if (prefactor<0.0)
+          return ( prefactor*p1.q()*p2.q()/abs_dist );
+        else
+          return ( prefactor * p1.q() * p2.q() * erfc(alpha*abs_dist) / abs_dist );
       }
       
       bool _computeForce(Real3D& force, const Particle &p1, const Particle &p2) const {
         Real3D dist = p1.position() - p2.position();
         real abs_dist = dist.abs();
         real sqr_dist = dist.sqr();
-
-        real forceFactor = prefactor * p1.q() * p2.q() * ( factor * exp( - alpha2 * sqr_dist ) + erfc(alpha*abs_dist) / abs_dist ) / sqr_dist;
+        real forceFactor;
+        if (prefactor<0.0)
+          forceFactor = prefactor * p1.q() * p2.q() / sqr_dist;
+        else
+          forceFactor = prefactor * p1.q() * p2.q() * ( factor * exp( - alpha2 * sqr_dist ) + erfc(alpha*abs_dist) / abs_dist ) / sqr_dist;
         force = dist * forceFactor;
         return true;
       }
