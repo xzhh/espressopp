@@ -37,8 +37,10 @@
 #include "Particle.hpp"
 #include "Buffer.hpp"
 #include "esutil/Error.hpp"
+//#include "VerletList.hpp"
 
 #include <iostream>
+//#include <cstdlib>
 #include <boost/unordered/unordered_map.hpp>
 using namespace std;
 
@@ -59,7 +61,9 @@ namespace espressopp {
       : SystemAccess(system),
         halfCellInt(halfCellInt),
         inBuffer(*system->comm),
-        outBuffer(*system->comm)
+        outBuffer(*system->comm)/*,
+        inBuffer_2(*system->comm),
+        outBuffer_2(*system->comm)*/
     {
       //logger.setLevel(log4espp::Logger::TRACE);
       LOG4ESPP_INFO(logger, "Created new storage object for a system, has buffers");
@@ -119,6 +123,8 @@ namespace espressopp {
     void Storage::removeFromLocalParticles(Particle *p, bool weak) {
       /* no pointer left, can happen for ghosts when the real particle
 	 e has already been removed */
+//if (getSystem()->ghostShift>0 && getSystem()->comm->rank()==getSystem()->irank)
+//std::cout<<" "<< p->id();
       if (localParticles.find(p->id()) == localParticles.end()){
         return;
       }
@@ -190,6 +196,14 @@ namespace espressopp {
     // TODO find out why python crashes if inlined
     //inline
     void Storage::updateInLocalParticles(Particle *p, bool weak) {
+//Particle *p2;
+//if (p->id()==6626) if (rename("FLAG_P","FLAG_P")==0 && getSystem()->ghostShift>0 && getSystem()->comm->rank()%4==1){
+//p2=lookupRealParticle(6626);
+//if (p2){
+//p2=lookupLocalParticle(6627);
+//if (p2) std::cout<<"  # #-"<<getSystem()->comm->rank()<<"> "<<p2->id()<<" ("<<p2->position()
+//<<") \n";
+//}}
       if (!weak || localParticles.find(p->id()) == localParticles.end()) {
           LOG4ESPP_TRACE(logger, "updating local pointer for particle id="
 		       << p->id() << " @ " << p);
@@ -222,13 +236,20 @@ namespace espressopp {
               }
           }
           */
+//if (p->id()==6626) std::cout<<"  upin-"<<getSystem()->comm->rank()<<"> "<<p->id()<<" ("<<p->position()<<") \n";
       }
       else {
           LOG4ESPP_TRACE(logger, "NOT updating local pointer for particle id="
 		       << p->id() << " @ " << p << " has already pointer @ "
 		       << localParticles[p->id()]);
+//if (p->id()==6626) std::cout<<"  upin-"<<getSystem()->comm->rank()<<"> PASS \n";
       }
+//if (p->id()==6626) if (rename("FLAG_P","FLAG_P")==0 && getSystem()->ghostShift>0 && getSystem()->comm->rank()%4==1){
+//for (IdParticleMap::iterator it = localParticles.begin();it!=localParticles.end();it++)
+//if (it->first!=it->second->id()) std::cout<<"  #*#-"<<getSystem()->comm->rank()<<"> "<<it->first<<" "<<it->second->id()<<" \n";
+//}
     }
+//IdParticleMap::iterator it = localParticles.find(id);
 
     inline
     void Storage::updateInLocalAdrATParticles(Particle *p) {
@@ -433,7 +454,8 @@ namespace espressopp {
 
     Particle *Storage::moveIndexedParticle(ParticleList &dl, ParticleList &sl, int i)
     {
-
+//if (getSystem()->ghostShift>0 && getSystem()->comm->rank()==getSystem()->irank)
+//std::cout<<" MV-u> \n";
       int dlast_capacity = dl.capacity();
       int slast_capacity = sl.capacity();
 
@@ -497,9 +519,21 @@ namespace espressopp {
       int size = list.size();
       data.write(size);
       for (ParticleList::Iterator it(list); it.isValid(); ++it) {
+//if (rename("FLAG_P","FLAG_P")==0 && getSystem()->ghostShift>0 && getSystem()->comm->rank()%4==1){// && (it->id()==6626 || it->id()==6627)){
+//std::cout<<" rmlc-"<<getSystem()->comm->rank()<<"> "<<it->id()<<" ("<<it->position()
+//<<") "<<list.size()<<" "<<node<<" \n";
+//}
           removeFromLocalParticles(&(*it));
           data.write(*it);
       }
+//Particle *p2;
+//if (rename("FLAG_P","FLAG_P")==0 && getSystem()->ghostShift>0 && getSystem()->comm->rank()%4==1){
+//p2=lookupRealParticle(6626);
+//if (p2){
+//p2=lookupLocalParticle(6627);
+//if (p2) std::cout<<" $ $-"<<getSystem()->comm->rank()<<"> "<<p2->id()<<" ("<<p2->position()
+//<<") "<<list.size()<<" "<<node<<" \n";
+//}}
 
       beforeSendParticles(list, data); // this also takes care of AdResS AT Particles
 
@@ -525,13 +559,33 @@ namespace espressopp {
       int curSize = list.size();
       LOG4ESPP_DEBUG(logger, "got " << size << " particles, have " << curSize);
 
+//Particle *p2;
       if (size > 0) {
         list.resize(curSize + size);
 
         for (int i = 0; i < size; ++i) {
           Particle *p = &list[curSize + i];
           data.read(*p);
+//if (rename("FLAG_P","FLAG_P")==0 && getSystem()->ghostShift>0 && getSystem()->comm->rank()%4==1){// && (p->id()==6626 || p->id()==6627)){
+//std::cout<<" uplc-"<<getSystem()->comm->rank()<<"> "<<p->id()<<" ("<<p->position()
+//<<") "<<list.size()<<" "<<node<<" \n";
+//}
+//if (rename("FLAG_P","FLAG_P")==0 && getSystem()->ghostShift>0 && getSystem()->comm->rank()%4==1){
+//p2=lookupRealParticle(6626);
+//if (p2){
+//p2=lookupLocalParticle(6627);
+//if (p2) std::cout<<" $'$-"<<getSystem()->comm->rank()<<"> "<<p2->id()<<" ("<<p2->position()
+//<<") "<<list.size()<<" "<<node<<" \n";
+//}}
           updateInLocalParticles(p);
+////Particle *p2;
+//if (rename("FLAG_P","FLAG_P")==0 && getSystem()->ghostShift>0 && getSystem()->comm->rank()%4==1){
+//p2=lookupRealParticle(6626);
+//if (p2){
+//p2=lookupLocalParticle(6627);
+//if (p2) std::cout<<" $$$-"<<getSystem()->comm->rank()<<"> "<<p2->id()<<" ("<<p2->position()
+//<<") "<<list.size()<<" "<<node<<" \n";
+//}}
         }
 
         afterRecvParticles(list, data); // this also takes care of AdResS AT Particles
@@ -541,6 +595,10 @@ namespace espressopp {
     }
 
     void Storage::invalidateGhosts() {
+//if (getSystem()->ghostShift>=0)// && getSystem()->comm->rank()==getSystem()->irank)
+//std::cout<<" INV-"<<getSystem()->comm->rank()<<"> "
+//<<localParticles.size()<<"\n";
+//int cnt=0;
       for(CellListIterator it(getGhostCells()); it.isValid(); ++it) {
         /* remove only ghosts from the hash if the localParticles hash
           actually points to the ghost.  If there are local ghost cells
@@ -548,14 +606,69 @@ namespace espressopp {
           via localParticles.
         */
         removeFromLocalParticles(&(*it), true);
+//cnt++;
       }
+//if (getSystem()->ghostShift>=0)
+//std::cout<<" COUNT-"<<getSystem()->comm->rank()<<"> "<<cnt<<" "<<ghostCells.size()<<" \n";
+//if (getSystem()->ghostShift>0 && getSystem()->comm->rank()==getSystem()->irank)
+//std::cout<<"\n---end---\n";
     }
 
     void Storage::decompose() {
+//if (getSystem()->comm->rank()==getSystem()->irank)
+//std::cout<<"DECOMP-start \n";
+//Particle *p2;
+
+//if (rename("FLAG_P","FLAG_P")==0){// && getSystem()->ghostShift>0 && getSystem()->comm->rank()%4==1){
+//for (IdParticleMap::iterator it = localParticles.begin();it!=localParticles.end();it++)
+//if (it->first!=it->second->id()) std::cout<<" ###-"<<getSystem()->comm->rank()<<"> "<<it->first<<" "<<it->second->id()<<" \n";
+//}
+//getSystem()->comm->barrier();
+
+//if (rename("FLAG_P","FLAG_P")==0){
+//p2=lookupLocalParticle(6627);
+//if (p2) std::cout<<"DEC-Look-"<<getSystem()->comm->rank()<<"> "<<p2->id()<<" ("<<p2->position()<<") "<<localParticles.size()<<" \n";
+//else std::cout<<"DEC-Look-"<<getSystem()->comm->rank()<<"> xxx (xxx) "<<localParticles.size()<<" \n";
+//}
+//getSystem()->comm->barrier();
       invalidateGhosts();
+//if (getSystem()->comm->rank()==getSystem()->irank)
+//std::cout<<"DECOMP-01 \n";
+//if (rename("FLAG_P","FLAG_P")==0 && getSystem()->comm->rank()%4==1){
+//p2=lookupRealParticle(6626);
+//if (p2){
+//p2=lookupLocalParticle(6627);
+//if (p2) std::cout<<" ''1-"<<getSystem()->comm->rank()<<"> "<<p2->id()<<" ("<<p2->position()<<") \n";
+//}}
+//getSystem()->comm->barrier();
       decomposeRealParticles();
+//if (getSystem()->comm->rank()==getSystem()->irank)
+//std::cout<<"DECOMP-02 \n";
+//if (rename("FLAG_P","FLAG_P")==0 && getSystem()->comm->rank()%4==1){
+//p2=lookupRealParticle(6626);
+//if (p2){
+//p2=lookupLocalParticle(6627);
+//if (p2) std::cout<<" ''2-"<<getSystem()->comm->rank()<<"> "<<p2->id()<<" ("<<p2->position()<<") \n";
+//}}
+//getSystem()->comm->barrier();
       exchangeGhosts();
+//if (getSystem()->comm->rank()==getSystem()->irank)
+//std::cout<<"DECOMP-03 \n";
+//if (rename("FLAG_P","FLAG_P")==0 && getSystem()->comm->rank()%4==1){
+//p2=lookupRealParticle(6626);
+//if (p2){
+//p2=lookupLocalParticle(6627);
+//if (p2) std::cout<<" ''3-"<<getSystem()->comm->rank()<<"> "<<p2->id()<<" ("<<p2->position()<<") \n";
+//}}
       onParticlesChanged();
+//if (getSystem()->comm->rank()==getSystem()->irank)
+//std::cout<<"DECOMP-04 \n";
+//if (rename("FLAG_P","FLAG_P")==0 && getSystem()->comm->rank()%4==1){
+//p2=lookupRealParticle(6626);
+//if (p2){
+//p2=lookupLocalParticle(6627);
+//if (p2) std::cout<<" ''4-"<<getSystem()->comm->rank()<<"> "<<p2->id()<<" ("<<p2->position()<<") \n";
+//}}
     }
 
     void Storage::packPositionsEtc(OutBuffer &buf,
@@ -577,6 +690,36 @@ namespace espressopp {
       }
     }
 
+    void Storage::packPositionsEtc_LEBC(OutBuffer &buf,
+				   Cell &_reals, int extradata, const Real3D& shift, real offset) {
+      ParticleList &reals  = _reals.particles; 
+      real cpy_tmp;
+
+      LOG4ESPP_DEBUG(logger, "pack data from reals in "
+		     << (&_reals - getFirstCell()));
+      LOG4ESPP_DEBUG(logger, "also packing "
+		     << ((extradata & DATA_PROPERTIES) ? "properties " : "")
+		     << ((extradata & DATA_MOMENTUM) ? "momentum " : "")
+		     << ((extradata & DATA_LOCAL) ? "local " : ""));
+      LOG4ESPP_DEBUG(logger, "positions are shifted by "
+		     << shift[0] << "," << shift[1] << "," << shift[2]);
+
+
+      for(ParticleList::iterator src = reals.begin(), end = reals.end(); src != end; ++src) {
+        //if (shift[2]!=0.0){
+          cpy_tmp=src->position()[0];
+          src->position()[0]+=offset;
+          buf.write(*src, extradata, shift);
+          src->position()[0]=cpy_tmp;
+//if (rename("FLAG_P","FLAG_P")==0 && getenv("VAR1")!=NULL && getSystem()->ghostShift>0)
+//if (src->id()==atoi(getenv("VAR1")))
+//std::cout<<"Pck-"<<getSystem()->comm->rank()<<"> "<<src->id()<<" ["<<src->position()<<" | "<<offset<<"] \n";
+        //else{
+        //  buf.write(*src, extradata, shift);
+        //}
+      }
+    }
+    
     void Storage::unpackPositionsEtc(Cell &_ghosts, InBuffer &buf, int extradata) {
       ParticleList &ghosts  = _ghosts.particles;
 
@@ -586,11 +729,13 @@ namespace espressopp {
 		     << ((extradata & DATA_PROPERTIES) ? "properties " : "")
 		     << ((extradata & DATA_MOMENTUM) ? "momentum " : "")
 		     << ((extradata & DATA_LOCAL) ? "local " : ""));
-
+         
       for(ParticleList::iterator dst = ghosts.begin(), end = ghosts.end(); dst != end; ++dst) {
-
+//if (getSystem()->ghostShift>0)
+//std::cout<<"      "<<dst->id()<<" "<<dst->position()<<" \n";
         buf.read(*dst, extradata);
-
+//if (rename("FLAG_P","FLAG_P")==0 && getSystem()->comm->rank()==4 && dst->id()==atoi(getenv("VAR1")))
+//std::cout<<" UPKPOS> "<<dst->id()<<" "<<dst->position()<<" \n";
         if (extradata & DATA_PROPERTIES) {
         	updateInLocalParticles(&(*dst), true);
         }
@@ -604,7 +749,7 @@ namespace espressopp {
 				    const Real3D& shift)
     {
       ParticleList &reals  = _reals.particles;
-      ParticleList &ghosts = _ghosts.particles;
+      ParticleList &ghosts = _ghosts.particles;      
 
       LOG4ESPP_DEBUG(logger, "copy data from reals in "
 		     << (&_reals - getFirstCell()) << " to ghosts in "
@@ -615,12 +760,54 @@ namespace espressopp {
 		     << ((extradata & DATA_LOCAL) ? "local " : ""));
       LOG4ESPP_DEBUG(logger, "positions are shifted by "
 		     << shift[0] << "," << shift[1] << "," << shift[2]);
+      ghosts.resize(reals.size());
+      
+      for(ParticleList::iterator src = reals.begin(), end = reals.end(), dst = ghosts.begin();
+              src != end; ++src, ++dst) {
+        dst->copyAsGhost(*src, extradata, shift);
+      }
+    }
 
+
+    void Storage::copyRealsToGhosts_LEBC(Cell &_reals, Cell &_ghosts,
+				    int extradata,
+				    const Real3D& shift)
+    {
+      ParticleList &reals  = _reals.particles;
+      ParticleList &ghosts = _ghosts.particles;
+      real cpy_tmp;
+      real Lx=getSystem()->bc->getBoxL()[0];
+      real Lz=getSystem()->bc->getBoxL()[2];
+      int xgrid=getInt3DCellGrid()[0]*getSystem()->NGridSize[0];//getInt3DNodeGrid()[0];
+      real offs=getSystem()->shearOffset;
+      
+      LOG4ESPP_DEBUG(logger, "copy data from reals in "
+		     << (&_reals - getFirstCell()) << " to ghosts in "
+		     << (&_ghosts - getFirstCell()));
+      LOG4ESPP_DEBUG(logger, "also copying "
+		     << ((extradata & DATA_PROPERTIES) ? "properties " : "")
+		     << ((extradata & DATA_MOMENTUM) ? "momentum " : "")
+		     << ((extradata & DATA_LOCAL) ? "local " : ""));
+      LOG4ESPP_DEBUG(logger, "positions are shifted by "
+		     << shift[0] << "," << shift[1] << "," << shift[2]);
       ghosts.resize(reals.size());
 
       for(ParticleList::iterator src = reals.begin(), end = reals.end(), dst = ghosts.begin();
               src != end; ++src, ++dst) {
-        dst->copyAsGhost(*src, extradata, shift);
+        if (shift[2]!=0.0){
+          cpy_tmp=src->position()[0];
+          real xref_cell=((&_ghosts - getFirstCell())%(xgrid+2)-0.5)/(xgrid+.0)*Lx;
+          src->position()[0]=src->position()[0]+offs*shift[2]/Lz;
+          if (src->position()[0]<xref_cell-Lx/2.0){
+            while (src->position()[0]<xref_cell-Lx/2.0) src->position()[0]+=Lx;
+          }else if (src->position()[0]>xref_cell+Lx/2.0){
+            while (src->position()[0]>xref_cell+Lx/2.0) src->position()[0]-=Lx;//mcutoff
+          }
+          dst->copyAsGhost(*src, extradata, shift);
+          src->position()[0]=cpy_tmp;
+        }else{
+          dst->copyAsGhost(*src, extradata, shift);
+        }
       }
     }
 
@@ -667,6 +854,8 @@ namespace espressopp {
     	  buf.read(f);
     	  LOG4ESPP_TRACE(logger, "for particle " << dst->id() << ": unpacking force "
 		       << f.f << " and adding to " << dst->force());
+//if (rename("FLAG_P","FLAG_P")==0 && getSystem()->comm->rank()==0 && dst->id()==atoi(getenv("VAR1")))
+//std::cout<<" UPKFC> "<<dst->id()<<" "<<dst->position()<<" \n";
     	  dst->particleForce() += f;
       }
     }

@@ -221,6 +221,7 @@ namespace espressopp {
        * Needed for DPD thermostat for example.
        */
       virtual void updateGhostsV() = 0;
+      virtual void remapNeighbourCells(int cshift) = 0;
 
       /** read back forces from ghost particles by two-sided
 	  communication.
@@ -273,6 +274,7 @@ namespace espressopp {
 	  Called by decompose.
       */
       virtual void decomposeRealParticles() = 0;
+      //virtual void decomposeRealParticles_LEBC() = 0;
 
       /** used by the Storage to initiate the exchange of the full ghost
 	  information after decomposition.
@@ -307,8 +309,10 @@ namespace espressopp {
       */
       virtual void packPositionsEtc(class OutBuffer& buf,
 			    Cell &reals, int extradata, const Real3D& shift);
-
- 
+			    
+      virtual void packPositionsEtc_LEBC(class OutBuffer& buf,
+			    Cell &reals, int extradata, const Real3D& shift, real offset);
+			    
       /** unpack received data for ghosts. */
       virtual void unpackPositionsEtc(Cell &ghosts, class InBuffer &buf, int extradata);
 
@@ -317,6 +321,10 @@ namespace espressopp {
 	  @param shift how to adjust the positions of the particles when sending
       */
       virtual void copyRealsToGhosts(Cell &reals, Cell &ghosts,
+			     int extradata,
+			     const Real3D& shift);
+
+      virtual void copyRealsToGhosts_LEBC(Cell &reals, Cell &ghosts,
 			     int extradata,
 			     const Real3D& shift);
 

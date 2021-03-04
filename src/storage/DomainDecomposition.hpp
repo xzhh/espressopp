@@ -96,6 +96,8 @@ namespace espressopp {
 
       /// init global Verlet list
       void initCellInteractions();
+      /// remap neighbour cells for shear flow simulation
+      void remapNeighbourCells(int cell_shift);
       /// set the grids and allocate space accordingly
       void createCellGrid(const Int3D& nodeGrid, const Int3D& cellGrid);
       /// sort cells into local/ghost cell arrays
@@ -132,6 +134,7 @@ namespace espressopp {
 	  For the order, see NodeGrid.
       */
       CommCells commCells[6];
+      CommCells commCells_bkp[2];
 
       static LOG4ESPP_DECL_LOGGER(logger);
     };

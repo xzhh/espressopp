@@ -143,6 +143,8 @@ namespace espressopp {
 
       /// init global Verlet list
       void initCellInteractions();
+      /// dummy function
+      void remapNeighbourCells(int cell_shift);
       /// set the grids and allocate space accordingly
       void createCellGrid(const Int3D& nodeGrid, const Int3D& cellGrid);
       /// sort cells into local/ghost cell arrays
