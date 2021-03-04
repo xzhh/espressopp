@@ -120,20 +120,71 @@ namespace espressopp {
     addForces() {
       LOG4ESPP_INFO(theLogger, "add forces computed by FixedTripleList");
       const bc::BC& bc = *getSystemRef().bc;  // boundary conditions
-      for (FixedTripleList::TripleList::Iterator it(*fixedtripleList); it.isValid(); ++it) {
-        Particle &p1 = *it->first;
-        Particle &p2 = *it->second;
-        Particle &p3 = *it->third;
-        //const Potential &potential = getPotential(p1.type(), p2.type());
-        Real3D dist12, dist32;
-        bc.getMinimumImageVectorBox(dist12, p1.position(), p2.position());
-        bc.getMinimumImageVectorBox(dist32, p3.position(), p2.position());
-        Real3D force12, force32;
-        potential->computeColVarWeights(dist12, dist32, bc);
-        potential->_computeForce(force12, force32, dist12, dist32);
-        p1.force() += force12;
-        p2.force() -= force12 + force32;
-        p3.force() += force32;
+      real Lx=bc.getBoxL()[0];
+      real Lz=bc.getBoxL()[2];
+      real offs = getSystemRef().shearOffset;
+      
+      if (offs>.0){
+        for (FixedTripleList::TripleList::Iterator it(*fixedtripleList); it.isValid(); ++it) {
+          Particle &p1 = *it->first;
+          Particle &p2 = *it->second;
+          Particle &p3 = *it->third;
+          //const Potential &potential = getPotential(p1.type(), p2.type());
+          Real3D dist12, dist32;
+          Real3D dist_tmp(.0);
+          
+          if (p1.position()[2]-p2.position()[2]>Lz/2.0){
+            dist_tmp[0]=-offs;
+            int xtmp=static_cast<int>(floor((p1.position()[0]+dist_tmp[0]-p2.position()[0])/Lx+0.5));
+            dist_tmp[0]-=(xtmp+.0)*Lx;
+          }else if (p1.position()[2]-p2.position()[2]<-Lz/2.0){
+            dist_tmp[0]=offs;
+            int xtmp=static_cast<int>(floor((p1.position()[0]+dist_tmp[0]-p2.position()[0])/Lx+0.5));
+            dist_tmp[0]-=(xtmp+.0)*Lx;
+          }
+          
+          bc.getMinimumImageVectorBox(dist12, p1.position()+dist_tmp, p2.position());
+          
+          dist_tmp={.0,.0,.0};
+          
+          if (p3.position()[2]-p2.position()[2]>Lz/2.0){
+            dist_tmp[0]=-offs;
+            int xtmp=static_cast<int>(floor((p3.position()[0]+dist_tmp[0]-p2.position()[0])/Lx+0.5));
+            dist_tmp[0]-=(xtmp+.0)*Lx;
+          }else if (p3.position()[2]-p2.position()[2]<-Lz/2.0){
+            dist_tmp[0]=offs;
+            int xtmp=static_cast<int>(floor((p3.position()[0]+dist_tmp[0]-p2.position()[0])/Lx+0.5));
+            dist_tmp[0]-=(xtmp+.0)*Lx;
+          }
+          
+          bc.getMinimumImageVectorBox(dist32,p3.position()+dist_tmp, p2.position());
+            
+          Real3D force12, force32;
+          potential->computeColVarWeights(dist12, dist32, bc);
+          potential->_computeForce(force12, force32, dist12, dist32);
+          p1.force() += force12;
+          p2.force() -= force12 + force32;
+          p3.force() += force32;
+        }
+      }else{
+        for (FixedTripleList::TripleList::Iterator it(*fixedtripleList); it.isValid(); ++it) {
+          Particle &p1 = *it->first;
+          Particle &p2 = *it->second;
+          Particle &p3 = *it->third;
+          //const Potential &potential = getPotential(p1.type(), p2.type());
+          Real3D dist12, dist32;
+          
+          bc.getMinimumImageVectorBox(dist12,p1.position(), p2.position());
+          
+          bc.getMinimumImageVectorBox(dist32,p3.position(), p2.position());
+            
+          Real3D force12, force32;
+          potential->computeColVarWeights(dist12, dist32, bc);
+          potential->_computeForce(force12, force32, dist12, dist32);
+          p1.force() += force12;
+          p2.force() -= force12 + force32;
+          p3.force() += force32;
+        }
       }
     }
 
@@ -143,17 +194,67 @@ namespace espressopp {
       LOG4ESPP_INFO(theLogger, "compute energy of the triples");
 
       const bc::BC& bc = *getSystemRef().bc;
+      real Lx=bc.getBoxL()[0];
+      real Lz=bc.getBoxL()[2];
+      
       real e = 0.0;
-      for (FixedTripleList::TripleList::Iterator it(*fixedtripleList); it.isValid(); ++it) {
-        const Particle &p1 = *it->first;
-        const Particle &p2 = *it->second;
-        const Particle &p3 = *it->third;
-        //const Potential &potential = getPotential(p1.type(), p2.type());
-        Real3D dist12 = bc.getMinimumImageVector(p1.position(), p2.position());
-        Real3D dist32 = bc.getMinimumImageVector(p3.position(), p2.position());
-        potential->computeColVarWeights(dist12, dist32, bc);
-        e += potential->_computeEnergy(dist12, dist32);
+      real offs = getSystemRef().shearOffset;
+      
+      if (offs>.0){
+        for (FixedTripleList::TripleList::Iterator it(*fixedtripleList); it.isValid(); ++it) {
+          const Particle &p1 = *it->first;
+          const Particle &p2 = *it->second;
+          const Particle &p3 = *it->third;
+          //const Potential &potential = getPotential(p1.type(), p2.type());
+          Real3D dist12,dist32;
+          
+          Real3D dist_tmp(.0);
+          
+          if (p1.position()[2]-p2.position()[2]>Lz/2.0){
+            dist_tmp[0]=-offs;
+            int xtmp=static_cast<int>(floor((p1.position()[0]+dist_tmp[0]-p2.position()[0])/Lx+0.5));
+            dist_tmp[0]-=(xtmp+.0)*Lx;
+          }else if (p1.position()[2]-p2.position()[2]<-Lz/2.0){
+            dist_tmp[0]=offs;
+            int xtmp=static_cast<int>(floor((p1.position()[0]+dist_tmp[0]-p2.position()[0])/Lx+0.5));
+            dist_tmp[0]-=(xtmp+.0)*Lx;
+          }
+          
+          dist12 = bc.getMinimumImageVector(p1.position()+dist_tmp, p2.position());
+          
+          dist_tmp={.0,.0,.0};
+          
+          if (p3.position()[2]-p2.position()[2]>Lz/2.0){
+            dist_tmp[0]=-offs;
+            int xtmp=static_cast<int>(floor((p3.position()[0]+dist_tmp[0]-p2.position()[0])/Lx+0.5));
+            dist_tmp[0]-=(xtmp+.0)*Lx;
+          }else if (p3.position()[2]-p2.position()[2]<-Lz/2.0){
+            dist_tmp[0]=offs;
+            int xtmp=static_cast<int>(floor((p3.position()[0]+dist_tmp[0]-p2.position()[0])/Lx+0.5));
+            dist_tmp[0]-=(xtmp+.0)*Lx;
+          }
+          
+          dist32 = bc.getMinimumImageVector(p3.position()+dist_tmp, p2.position());
+            
+          potential->computeColVarWeights(dist12, dist32, bc);
+          e += potential->_computeEnergy(dist12, dist32);
+        }
+      }else{
+        for (FixedTripleList::TripleList::Iterator it(*fixedtripleList); it.isValid(); ++it) {
+          const Particle &p1 = *it->first;
+          const Particle &p2 = *it->second;
+          const Particle &p3 = *it->third;
+          //const Potential &potential = getPotential(p1.type(), p2.type());
+          Real3D dist12,dist32;
+          
+          dist12 = bc.getMinimumImageVector(p1.position(), p2.position());
+          dist32 = bc.getMinimumImageVector(p3.position(), p2.position());
+            
+          potential->computeColVarWeights(dist12, dist32, bc);
+          e += potential->_computeEnergy(dist12, dist32);
+        }
       }
+      
       real esum;
       boost::mpi::all_reduce(*mpiWorld, e, esum, std::plus<real>());
       return esum;
