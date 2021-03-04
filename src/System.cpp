@@ -71,6 +71,12 @@ namespace espressopp {
 
     comm = newcomm;
     maxCutoff = 0.0;
+    shearOffset = 0.0;
+    NGridSize={1,1,1};
+    ghostShift=0;
+    shearByCell = false;
+    shearRate = 0.0;
+    irank=0;
   }
 
   void System::setSkin(real _skin){
@@ -204,6 +210,7 @@ namespace espressopp {
 //      .def_readwrite("shortRangeInteractions",
 //		     &System::shortRangeInteractions)
       .def_readonly("maxCutoff", &System::maxCutoff)
+//      .def_readwrite("shearOffset", &System::shearOffset)
       .def("addInteraction", &System::addInteraction)
       .def("removeInteraction", &System::removeInteraction)
       .def("getInteraction", &System::getInteraction)
