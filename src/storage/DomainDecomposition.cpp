@@ -363,178 +363,167 @@ namespace espressopp {
     bool ifreach;
     int incell_shift=(cell_shift%xgrid+xgrid)%xgrid;
 
-//nodeGrid.getNodePosition(0)
-//std::cout<<"TEST> "<<getInt3DNodeGrid()[0]<<" "<<nodeGrid.getGridSize(0)<<"\n";
 //throw std::runtime_error("Quit \n");
     if (nodeGrid.getNodePosition(2)==0 || nodeGrid.getNodePosition(2)==getInt3DNodeGrid()[2]-1){
-      //Dealing with the bottom layer of ghosts
-      o = cellGrid.getInnerCellsBegin(2)-halfCellInt;
-      for (int n = y_begin; n <= y_end; n++) {
-        for (int m = x_begin; m < x_end; m++) {
-          cell_idx1 = cellGrid.mapPositionToIndex(m, n, o);
-          cell_idx2 = cellGrid.mapPositionToIndex(m+1, n, o);
+        //Dealing with the bottom layer of ghosts
+        o = cellGrid.getInnerCellsBegin(2)-halfCellInt;
+        for (int n = y_begin; n <= y_end; n++) {
+          for (int m = x_begin; m < x_end; m++) {
+            cell_idx1 = cellGrid.mapPositionToIndex(m, n, o);
+            cell_idx2 = cellGrid.mapPositionToIndex(m+1, n, o);
+            cell1 = &cells[cell_idx1];
+            cell2 = &cells[cell_idx2];
+            cell1->particles.clear();
+            cell1->particles=cell2->particles;
+            //for(Particle& p: cell2->particles) cell1->particles.push_back(p);
+            if (getInt3DNodeGrid()[2]>1)
+              updateLocalParticles(cell1->particles);
+          }
+        }
+        for (int n=y_begin; n<=y_end; n++){
+          cell_idx1 = cellGrid.mapPositionToIndex(x_begin+1, n, o);
+          cell_idx2 = cellGrid.mapPositionToIndex(x_end, n, o);
           cell1 = &cells[cell_idx1];
           cell2 = &cells[cell_idx2];
-//if (rename("FLAG_P","FLAG_P")==0 && getSystem()->comm->rank()==getSystem()->irank)
-//std::cout<<"RMAP> "<<cell1-getFirstCell()<<" "<<&(cell1->particles)<<" "<<cell1->particles.size()<<" \n";
-          cell1->particles.clear();
-          cell1->particles=cell2->particles;
-updateLocalParticles( cell1->particles );
+          //here it is cell2 copied from cell1
+          cell2->particles.clear();
+          if (getInt3DNodeGrid()[0]*getInt3DNodeGrid()[2]==1){
+            cell2->particles=cell1->particles;
+            //for(Particle& p: cell1->particles) cell2->particles.push_back(p);
+            for(Particle& p: cell2->particles) p.position()[0]+=Lx;
+          }else if (getInt3DNodeGrid()[0]==1 && getInt3DNodeGrid()[2]>1)
+            throw std::runtime_error("SORRY! I HAVE TO TK'ABOUT IT \n");
+          if (getInt3DNodeGrid()[2]>1)
+            updateLocalParticles(cell2->particles);
         }
-      }
-      for (int n=y_begin; n<=y_end; n++){
-        cell_idx1 = cellGrid.mapPositionToIndex(x_begin+1, n, o);
-        cell_idx2 = cellGrid.mapPositionToIndex(x_end, n, o);
-        cell1 = &cells[cell_idx1];
-        cell2 = &cells[cell_idx2];
-        //here it is cell2 copied from cell1
-        cell2->particles.clear();
-        if (getInt3DNodeGrid()[0]*getInt3DNodeGrid()[2]==1){
-          cell2->particles=cell1->particles;
-          for(Particle& p: cell2->particles) p.position()[0]+=Lx;
-updateLocalParticles( cell2->particles );
-        }else if (getInt3DNodeGrid()[0]==1 && getInt3DNodeGrid()[2]>1)
-          throw std::runtime_error("SORRY! I HAVE TO TK'ABOUT IT \n");
-      }
-//onParticlesChanged();
-      //rebuild commCell for Z+
-  
-      commCells[5].reals.clear();
-      commCells[5].ghosts.clear();
-      commCells[5].reals.reserve((x_end-x_begin+1)*(y_end-y_begin+1));
-      commCells[5].ghosts.reserve((x_end-x_begin+1)*(y_end-y_begin+1));
-      o_opp=z_end-1;
-      if (incell_shift==0){
-        for (int m = x_begin; m <= x_end; m++) {
-          for (int n = y_begin; n <= y_end; n++) {
-            cell_idx1 = cellGrid.mapPositionToIndex(m, n, o_opp);
-            cell1 = &cells[cell_idx1];
-            cell_idx2 = cellGrid.mapPositionToIndex(m, n, o);
-            cell2 = &cells[cell_idx2];
-            commCells[5].reals.push_back(cell1);
-            commCells[5].ghosts.push_back(cell2);
+        //onParticlesChanged();
+        //rebuild commCell for Z+
+    
+        commCells[5].reals.clear();
+        commCells[5].ghosts.clear();
+        commCells[5].reals.reserve((x_end-x_begin+1)*(y_end-y_begin+1));
+        commCells[5].ghosts.reserve((x_end-x_begin+1)*(y_end-y_begin+1));
+        o_opp=z_end-1;
+        if (incell_shift==0){
+          for (int m = x_begin; m <= x_end; m++) {
+            for (int n = y_begin; n <= y_end; n++) {
+              cell_idx1 = cellGrid.mapPositionToIndex(m, n, o_opp);
+              cell1 = &cells[cell_idx1];
+              cell_idx2 = cellGrid.mapPositionToIndex(m, n, o);
+              cell2 = &cells[cell_idx2];
+              commCells[5].reals.push_back(cell1);
+              commCells[5].ghosts.push_back(cell2);
+            }
+          }
+        }else{
+          ifreach=false;
+          for (int m = x_begin+1; m <= x_end-1; m++) {
+            int m_shifted=(m-1)%xgrid+1-incell_shift;
+            if (m_shifted==x_begin && !ifreach) ifreach=true;
+            if (ifreach) for (int n = y_begin; n <= y_end; n++) {
+              cell_idx1 = cellGrid.mapPositionToIndex(m, n, o_opp);
+              cell1 = &cells[cell_idx1];
+              cell_idx2 = cellGrid.mapPositionToIndex(m_shifted, n, o);
+              cell2 = &cells[cell_idx2];
+              commCells[5].reals.push_back(cell1);
+              commCells[5].ghosts.push_back(cell2);
+            }
+          }
+          ifreach=false;
+          for (int m = x_begin+1; m <= x_end-1 && !ifreach; m++) {
+            int m_shifted=(m-1)%xgrid+1-(incell_shift-xgrid);
+            if (!ifreach) for (int n = y_begin; n <= y_end; n++) {
+              cell_idx1 = cellGrid.mapPositionToIndex(m, n, o_opp);
+              cell1 = &cells[cell_idx1];
+              cell_idx2 = cellGrid.mapPositionToIndex(m_shifted, n, o);
+              cell2 = &cells[cell_idx2];
+              commCells[5].reals.push_back(cell1);
+              commCells[5].ghosts.push_back(cell2);
+            }
+            if (m_shifted==x_end) ifreach=true;
           }
         }
-      }else{
-        ifreach=false;
-        for (int m = x_begin+1; m <= x_end-1; m++) {
-          int m_shifted=(m-1)%xgrid+1-incell_shift;
-          if (m_shifted==x_begin && !ifreach) ifreach=true;
-          if (ifreach) for (int n = y_begin; n <= y_end; n++) {
-            cell_idx1 = cellGrid.mapPositionToIndex(m, n, o_opp);
+        
+        //Dealing with the top layer of ghosts
+        o = cellGrid.getInnerCellsEnd(2)-1+halfCellInt;
+        for (int n = y_end; n >= y_begin; n--) {
+          for (int m = x_end; m > x_begin; m--) {
+            cell_idx1 = cellGrid.mapPositionToIndex(m, n, o);
+            cell_idx2 = cellGrid.mapPositionToIndex(m-1, n, o);
             cell1 = &cells[cell_idx1];
-            cell_idx2 = cellGrid.mapPositionToIndex(m_shifted, n, o);
             cell2 = &cells[cell_idx2];
-            commCells[5].reals.push_back(cell1);
-            commCells[5].ghosts.push_back(cell2);
+            cell1->particles.clear();
+            cell1->particles=cell2->particles;
+            //for(Particle& p: cell2->particles) cell1->particles.push_back(p);
+            if (getInt3DNodeGrid()[2]>1)
+              updateLocalParticles(cell1->particles);
           }
         }
-        ifreach=false;
-        for (int m = x_begin+1; m <= x_end-1 && !ifreach; m++) {
-          int m_shifted=(m-1)%xgrid+1-(incell_shift-xgrid);
-          if (!ifreach) for (int n = y_begin; n <= y_end; n++) {
-            cell_idx1 = cellGrid.mapPositionToIndex(m, n, o_opp);
-            cell1 = &cells[cell_idx1];
-            cell_idx2 = cellGrid.mapPositionToIndex(m_shifted, n, o);
-            cell2 = &cells[cell_idx2];
-            commCells[5].reals.push_back(cell1);
-            commCells[5].ghosts.push_back(cell2);
-          }
-          if (m_shifted==x_end) ifreach=true;
-        }
-      }
-  //if (getSystem()->comm->rank()==getSystem()->irank){
-  //std::cout<<" ######## \n ######## \n";
-  //for (int i=0;i<81;i++)
-  //std::cout<<" f-"<<getSystem()->comm->rank()
-  //<<" "<<commCells[5].reals[i]
-  //<<" "<<commCells[5].ghosts[i]
-  //<<"\n";
-  //}
-      
-      
-      //Dealing with the top layer of ghosts
-      o = cellGrid.getInnerCellsEnd(2)-1+halfCellInt;
-      for (int n = y_end; n >= y_begin; n--) {
-        for (int m = x_end; m > x_begin; m--) {
-          cell_idx1 = cellGrid.mapPositionToIndex(m, n, o);
-          cell_idx2 = cellGrid.mapPositionToIndex(m-1, n, o);
+        for (int n=y_begin; n<=y_end; n++){
+          cell_idx1 = cellGrid.mapPositionToIndex(x_begin, n, o);
+          cell_idx2 = cellGrid.mapPositionToIndex(x_end-1, n, o);
           cell1 = &cells[cell_idx1];
           cell2 = &cells[cell_idx2];
           cell1->particles.clear();
-          cell1->particles=cell2->particles;
-updateLocalParticles( cell1->particles );
+          if (getInt3DNodeGrid()[0]*getInt3DNodeGrid()[2]==1){
+            cell1->particles=cell2->particles;
+            //for(Particle& p: cell2->particles) cell1->particles.push_back(p);
+            for(Particle& p: cell1->particles) p.position()[0]-=Lx;
+          }else if (getInt3DNodeGrid()[0]==1 && getInt3DNodeGrid()[2]>1)
+            throw std::runtime_error("SORRY! I HAVE TO TK'ABOUT IT \n");
+          if (getInt3DNodeGrid()[2]>1)
+            updateLocalParticles(cell1->particles);
         }
-      }
-      for (int n=y_begin; n<=y_end; n++){
-        cell_idx1 = cellGrid.mapPositionToIndex(x_begin, n, o);
-        cell_idx2 = cellGrid.mapPositionToIndex(x_end-1, n, o);
-        cell1 = &cells[cell_idx1];
-        cell2 = &cells[cell_idx2];
-        cell1->particles.clear();
-        if (getInt3DNodeGrid()[0]*getInt3DNodeGrid()[2]==1){
-          cell1->particles=cell2->particles;
-          for(Particle& p: cell1->particles) p.position()[0]-=Lx;
-updateLocalParticles( cell1->particles );
-        }else if (getInt3DNodeGrid()[0]==1 && getInt3DNodeGrid()[2]>1)
-          throw std::runtime_error("SORRY! I HAVE TO TK'ABOUT IT \n");
-      }
-//onParticlesChanged();
-      //rebuild commCell for Z-
-      commCells[4].reals.clear();
-      commCells[4].ghosts.clear();
-      commCells[4].reals.reserve((x_end-x_begin+1)*(y_end-y_begin+1));
-      commCells[4].ghosts.reserve((x_end-x_begin+1)*(y_end-y_begin+1));
-      o_opp=z_begin+1;
-      if (incell_shift==0){
-        for (int m = x_begin; m <= x_end; m++) {
-          for (int n = y_begin; n <= y_end; n++) {
-            cell_idx1 = cellGrid.mapPositionToIndex(m, n, o_opp);
-            cell1 = &cells[cell_idx1];
-            cell_idx2 = cellGrid.mapPositionToIndex(m, n, o);
-            cell2 = &cells[cell_idx2];
-            commCells[4].reals.push_back(cell1);
-            commCells[4].ghosts.push_back(cell2);
+        //onParticlesChanged();
+        //rebuild commCell for Z-
+        commCells[4].reals.clear();
+        commCells[4].ghosts.clear();
+        commCells[4].reals.reserve((x_end-x_begin+1)*(y_end-y_begin+1));
+        commCells[4].ghosts.reserve((x_end-x_begin+1)*(y_end-y_begin+1));
+        o_opp=z_begin+1;
+        if (incell_shift==0){
+          for (int m = x_begin; m <= x_end; m++) {
+            for (int n = y_begin; n <= y_end; n++) {
+              cell_idx1 = cellGrid.mapPositionToIndex(m, n, o_opp);
+              cell1 = &cells[cell_idx1];
+              cell_idx2 = cellGrid.mapPositionToIndex(m, n, o);
+              cell2 = &cells[cell_idx2];
+              commCells[4].reals.push_back(cell1);
+              commCells[4].ghosts.push_back(cell2);
+            }
+          }
+        }else{
+          ifreach=false;
+          for (int m = x_begin+1; m <= x_end-1 && !ifreach; m++) {
+            int m_shifted=(m-1)%xgrid+1+incell_shift;
+            if (!ifreach) for (int n = y_begin; n <= y_end; n++) {
+              cell_idx1 = cellGrid.mapPositionToIndex(m, n, o_opp);
+              cell1 = &cells[cell_idx1];
+              cell_idx2 = cellGrid.mapPositionToIndex(m_shifted, n, o);
+              cell2 = &cells[cell_idx2];
+              commCells[4].reals.push_back(cell1);
+              commCells[4].ghosts.push_back(cell2);
+            }
+            if (m_shifted==x_end) ifreach=true;
+          }
+          ifreach=false;
+          for (int m = x_begin+1; m <= x_end-1; m++) {
+            int m_shifted=(m-1)%xgrid+1+(incell_shift-xgrid);
+            if (m_shifted==x_begin && !ifreach) ifreach=true;
+            if (ifreach) for (int n = y_begin; n <= y_end; n++) {
+              cell_idx1 = cellGrid.mapPositionToIndex(m, n, o_opp);
+              cell1 = &cells[cell_idx1];
+              cell_idx2 = cellGrid.mapPositionToIndex(m_shifted, n, o);
+              cell2 = &cells[cell_idx2];
+              commCells[4].reals.push_back(cell1);
+              commCells[4].ghosts.push_back(cell2);
+            }
           }
         }
-      }else{
-        ifreach=false;
-        for (int m = x_begin+1; m <= x_end-1 && !ifreach; m++) {
-          int m_shifted=(m-1)%xgrid+1+incell_shift;
-          if (!ifreach) for (int n = y_begin; n <= y_end; n++) {
-            cell_idx1 = cellGrid.mapPositionToIndex(m, n, o_opp);
-            cell1 = &cells[cell_idx1];
-            cell_idx2 = cellGrid.mapPositionToIndex(m_shifted, n, o);
-            cell2 = &cells[cell_idx2];
-            commCells[4].reals.push_back(cell1);
-            commCells[4].ghosts.push_back(cell2);
-          }
-          if (m_shifted==x_end) ifreach=true;
-        }
-        ifreach=false;
-        for (int m = x_begin+1; m <= x_end-1; m++) {
-          int m_shifted=(m-1)%xgrid+1+(incell_shift-xgrid);
-          if (m_shifted==x_begin && !ifreach) ifreach=true;
-          if (ifreach) for (int n = y_begin; n <= y_end; n++) {
-            cell_idx1 = cellGrid.mapPositionToIndex(m, n, o_opp);
-            cell1 = &cells[cell_idx1];
-            cell_idx2 = cellGrid.mapPositionToIndex(m_shifted, n, o);
-            cell2 = &cells[cell_idx2];
-            commCells[4].reals.push_back(cell1);
-            commCells[4].ghosts.push_back(cell2);
-          }
-        }
-      }
     }
-//if (getSystem()->comm->rank()%4==0)
-//std::cout<<" shift-"<<getSystem()->comm->rank()<<"> "
-//<<commCells[4].reals.size()<<" "
-//<<commCells[4].ghosts.size()<<" "
-//<<commCells[5].reals.size()<<" "
-//<<commCells[5].ghosts.size()<<" \n";
-//throw std::runtime_error(" ###QUIT#### ");
     LOG4ESPP_DEBUG(logger, "done");
-
+//if (rename("FLAG_P","FLAG_P")==0 && getSystem()->comm->rank()==getSystem()->irank)
+//std::cout<<" QUIT> \n";
   }
 
   Cell *DomainDecomposition::mapPositionToCell(const Real3D& pos) {
@@ -592,166 +581,6 @@ updateLocalParticles( cell1->particles );
     return outlier;
   }
 
-/*  void DomainDecomposition::decomposeRealParticles() {
-
-      //std::cout << getSystem()->comm->rank() << ": " << " decomposeRealParticles\n";
-
-    LOG4ESPP_DEBUG(logger, "starting, expected comm buffer size " << exchangeBufferSize);
-
-    // allocate send/recv buffers. We use the size as we need maximally so far, to avoid reallocation
-    // TODO: This might be a problem when all particles are created on a single node initially!
-    ParticleList sendBufL;
-    sendBufL.reserve(exchangeBufferSize);
-    ParticleList sendBufR;
-    sendBufR.reserve(exchangeBufferSize);
-    ParticleList recvBufL;
-    recvBufL.reserve(exchangeBufferSize);
-    ParticleList recvBufR;
-    recvBufR.reserve(exchangeBufferSize);
-
-    bool allFinished;
-    do {
-      bool finished = true;
-
-      for (int coord = 0; coord < 3; ++coord) {
-        LOG4ESPP_DEBUG(logger, "starting with direction " << coord);
-
-        if (nodeGrid.getGridSize(coord) > 1) {
-          for (std::vector<Cell*>::iterator it = realCells.begin(),
-            end = realCells.end(); it != end; ++it) {
-
-            Cell &cell = **it;
-
-            // do not use an iterator here, since we need to take out particles during the loop
-            for (size_t p = 0; p < cell.particles.size(); ++p) {
-              Particle &part = cell.particles[p];
-              const Real3D& pos = part.position();
-
-              // check whether the particle is now "left" of the local domain
-              if (pos[coord] - cellGrid.getMyLeft(coord) < -ROUND_ERROR_PREC) {
-                LOG4ESPP_TRACE(logger, "send particle left " << part.id());
-                moveIndexedParticle(sendBufL, cell.particles, p);
-                // redo same particle since we took one out here, so it's a new one
-                --p;
-              }
-              // check whether the particle is now "right" of the local domain
-              else if (pos[coord] - cellGrid.getMyRight(coord) >= ROUND_ERROR_PREC) {
-                LOG4ESPP_TRACE(logger, "send particle right " << part.id());
-                moveIndexedParticle(sendBufR, cell.particles, p);
-                --p;
-              }
-              // Sort particles in cells of this node during last direction
-              else if (coord == 2) {
-                const Real3D& pos = part.position();
-                Cell *sortCell = mapPositionToCellChecked(pos);
-                if (sortCell != &cell) {
-                  if (sortCell == 0) {
-                    // particle is not in the local domain
-                    LOG4ESPP_DEBUG(logger, "take another loop: particle " << part.id()
-                            << " @ " << pos <<
-                            " is not inside node domain after neighbor exchange");
-                    // isnan function is C99 only, x != x is only true if x == nan
-                    if (pos[0] != pos[0] || pos[1] != pos[1] || pos[2] != pos[2]) {
-                      // TODO: error handling
-                      LOG4ESPP_ERROR(logger, "particle " << part.id() <<
-                              " has moved to outer space (one or more coordinates are nan)");
-                    } else {
-                      // particle stays where it is, and will be sorted in the next round
-                      finished = false;
-                    }
-                  } else {
-                    // particle is in the local domain
-                    moveIndexedParticle(sortCell->particles, cell.particles, p);
-                    --p;
-                  }
-                }
-              }
-
-            }
-          }
-
-          // Exchange particles, odd-even rule
-          if (nodeGrid.getNodePosition(coord) % 2 == 0) {
-            sendParticles(sendBufL, nodeGrid.getNodeNeighborIndex(2 * coord));
-            recvParticles(recvBufR, nodeGrid.getNodeNeighborIndex(2 * coord + 1));
-            sendParticles(sendBufR, nodeGrid.getNodeNeighborIndex(2 * coord + 1));
-            recvParticles(recvBufL, nodeGrid.getNodeNeighborIndex(2 * coord));
-          } else {
-            recvParticles(recvBufR, nodeGrid.getNodeNeighborIndex(2 * coord + 1));
-            sendParticles(sendBufL, nodeGrid.getNodeNeighborIndex(2 * coord));
-            recvParticles(recvBufL, nodeGrid.getNodeNeighborIndex(2 * coord));
-            sendParticles(sendBufR, nodeGrid.getNodeNeighborIndex(2 * coord + 1));
-          }
-
-          // sort received particles to cells
-          if (appendParticles(recvBufL, 2 * coord) && coord == 2) finished = false;
-          if (appendParticles(recvBufR, 2 * coord + 1) && coord == 2) finished = false;
-
-          // reset send/recv buffers
-          sendBufL.resize(0);
-          sendBufR.resize(0);
-          recvBufL.resize(0);
-          recvBufR.resize(0);
-
-
-        } else {
-          // Single node direction case (no communication)
-          // Fold particles that have left the box
-          for (std::vector< Cell* >::iterator it = realCells.begin(),
-            end = realCells.end(); it != end; ++it) {
-            Cell &cell = **it;
-            // do not use an iterator here, since we have need to take out particles during the loop
-            for (size_t p = 0; p < cell.particles.size(); ++p) {
-                Particle &part = cell.particles[p];
-                getSystem()->bc->foldCoordinate(part.position(), part.image(), coord);
-                LOG4ESPP_TRACE(logger, "folded coordinate " << coord << " of particle " << part.id());
-
-                if (coord == 2) {
-                    Cell *sortCell = mapPositionToCellChecked(part.position());
-
-                    if (sortCell != &cell) {
-                        if (sortCell == 0) {
-                            LOG4ESPP_DEBUG(logger, "take another loop: particle " << part.id()
-                                    << " @ " << part.position()
-                                    << " is not inside node domain after neighbor exchange");
-                            const Real3D& pos = part.position();
-                            // isnan function is C99 only, x != x is only true if x == nan
-                            if (pos[0] != pos[0] || pos[1] != pos[1] || pos[2] != pos[2]) {
-                                LOG4ESPP_ERROR(logger, "particle " << part.id() <<
-                                        " has moved to outer space (one or more coordinates are nan)");
-                            } else {
-                                // particle stays where it is, and will be sorted in the next round
-                                finished = false;
-                            }
-                        } else {
-                            moveIndexedParticle(sortCell->particles, cell.particles, p);
-                            --p;
-                        }
-                    }
-                }
-            }
-          }
-        }
-
-        LOG4ESPP_DEBUG(logger, "done with direction " << coord);
-      }
-
-      // Communicate wether particle exchange is finished
-      mpi::all_reduce(*getSystem()->comm, finished, allFinished, std::logical_and<bool>());
-    } while (!allFinished);
-
-    exchangeBufferSize = std::max(exchangeBufferSize,
-                  std::max(sendBufL.capacity(),
-                       std::max(sendBufR.capacity(),
-                            std::max(recvBufL.capacity(),
-                                 recvBufR.capacity()))));
-
-    LOG4ESPP_DEBUG(logger, "finished exchanging particles, new send/recv buffer size " << exchangeBufferSize);
-
-    LOG4ESPP_DEBUG(logger, "done");
-  }*/
-
-
   void DomainDecomposition::decomposeRealParticles() {
 
     //std::cout << getSystem()->comm->rank() << ": " << " decomposeRealParticles\n";
@@ -771,8 +600,6 @@ updateLocalParticles( cell1->particles );
     
     ParticleList sendBuf2;
     ParticleList recvBuf2;
-            sendBuf2.reserve(exchangeBufferSize);
-            recvBuf2.reserve(exchangeBufferSize);
 //if (rename("FLAG_P","FLAG_P")==0 && getSystem()->comm->rank()==getSystem()->irank)
 //std::cout<<" FOLD-"<<getSystem()->comm->rank()<<"> "<<getSystem()->ghostShift<<"\n";
     bool allFinished;
@@ -792,6 +619,8 @@ updateLocalParticles( cell1->particles );
 
         if (nodeGrid.getGridSize(coord) > 1) {
           if (offs>.0 && coord==2 && nodeGrid.getNodePosition(2)%(getInt3DNodeGrid()[2]-1)==0){
+            sendBuf2.reserve(exchangeBufferSize);
+            recvBuf2.reserve(exchangeBufferSize);
             
             if (nodeGrid.getNodePosition(2)==0){
               ptmp1=(static_cast<int>(floor(((nodeGrid.getNodePosition(0)+.0)/(getInt3DNodeGrid()[0]+.0)*Lx+offs)/Lx*getInt3DNodeGrid()[0]))%getInt3DNodeGrid()[0]+getInt3DNodeGrid()[0])%getInt3DNodeGrid()[0];
@@ -813,14 +642,7 @@ updateLocalParticles( cell1->particles );
 //std::cout<<" NODE(LR)-"<<getSystem()->comm->rank()<<"> "
 //<<node1<<" "<<node2<<" | "
 //<<nodeGrid.getNodeNeighborIndex(2 * coord)<<" "<<nodeGrid.getNodeNeighborIndex(2 * coord+1)<<" \n";
-
-//Particle *p2;
-//if (rename("FLAG_P","FLAG_P")==0){// && getSystem()->comm->rank()%4==1){
-//p2=lookupRealParticle(6626);
-//if (p2){
-//p2=lookupLocalParticle(6627);
-//if (p2) std::cout<<" ^^^-"<<getSystem()->comm->rank()<<"> "<<p2->id()<<" ("<<p2->position()<<") \n";
-//}}//else std::cout<<" ^^^-"<<getSystem()->comm->rank()<<"\n";}
+            
             for (std::vector<Cell*>::iterator it = realCells.begin(),
               end = realCells.end(); it != end; ++it) {
   
@@ -853,6 +675,7 @@ updateLocalParticles( cell1->particles );
                 // check whether the particle is now "right" of the local domain
                 else if (pos[coord] - cellGrid.getMyRight(coord) >= ROUND_ERROR_PREC) {
                   LOG4ESPP_TRACE(logger, "send particle right " << part.id());
+                  
                   if (nodeGrid.getNodePosition(2)==getInt3DNodeGrid()[2]-1){
                     real xtmp=part.position()[0]-offs;
                     int itmp= static_cast<int>(floor(xtmp/Lx));
@@ -894,31 +717,17 @@ updateLocalParticles( cell1->particles );
                   }
                 }
               }
-//if (rename("FLAG_P","FLAG_P")==0 && getenv("VAR1")!=NULL && getSystem()->ghostShift>0 && getSystem()->comm->rank()==getSystem()->irank)
-//std::cout<<"Buf-"<<getSystem()->comm->rank()<<"> "
-//<<sendBufL.size()<<" "<<sendBufR.size()<<" "<<sendBuf2.size()<<" \n";
             }
 
-//for (std::vector<Cell*>::iterator it = realCells.begin(),
-//  end = realCells.end(); it != end; ++it) {
-//
-//  Cell &cell = **it;
-//  updateLocalParticles( cell.particles );
-//}
-//if (rename("FLAG_P","FLAG_P")==0){// && getSystem()->comm->rank()%4==1){
-//p2=lookupRealParticle(6626);
-//if (p2){
-//p2=lookupLocalParticle(6627);
-//if (p2) std::cout<<" ^^1-"<<getSystem()->comm->rank()<<"> "<<p2->id()<<" ("<<p2->position()<<") \n";
-//else std::cout<<" ^^1-"<<getSystem()->comm->rank()<<"> PASS \n";
-//}}//else std::cout<<" ^^1-"<<getSystem()->comm->rank()<<"\n";}
+//if (rename("FLAG_P","FLAG_P")==0)// && getSystem()->comm->rank()==getSystem()->irank)
+//std::cout<<" SEND/RECV-"<<getSystem()->comm->rank()<<"> "
+//<<sendBufL.size()<<" "<<sendBufR.size()<<" ("
+//<<sendBufL2.size()<<" "<<sendBufR2.size()<<") | "
+//<<recvBufL.size()<<" "<<recvBufR.size()<<" ("
+//<<recvBufL2.size()<<" "<<recvBufR2.size()<<") \n";
 
             // Exchange particles, odd-even rule
             if (nodeGrid.getNodePosition(2)==0){
-//if (rename("FLAG_P","FLAG_P")==0)// && getSystem()->comm->rank()==getSystem()->irank)
-//std::cout<<" SEND-"<<getSystem()->comm->rank()<<"> "
-//<<sendBufL.size()<<" "<<sendBufR.size()<<" ("<<sendBuf2.size()<<") "
-//<<node1<<" "<<nodeGrid.getNodeNeighborIndex(2 * coord + 1)<<" "<<node2<<" \n";
               if (nodeGrid.getNodePosition(coord) % 2 == 0) {
                 sendParticles(sendBufL, node1);
                 recvParticles(recvBufR, nodeGrid.getNodeNeighborIndex(2 * coord + 1));
@@ -934,15 +743,7 @@ updateLocalParticles( cell1->particles );
                 sendParticles(sendBuf2, node2);
                 recvParticles(recvBuf2, node2);
               }
-//if (rename("FLAG_P","FLAG_P")==0)// && getSystem()->comm->rank()==getSystem()->irank)
-//std::cout<<" RECV-"<<getSystem()->comm->rank()<<"> "
-//<<recvBufL.size()<<" "<<recvBufR.size()<<" ("<<recvBuf2.size()<<") "
-//<<node1<<" "<<nodeGrid.getNodeNeighborIndex(2 * coord + 1)<<" "<<node2<<" \n";
             }else if (nodeGrid.getNodePosition(2)==getInt3DNodeGrid()[2]-1){
-//if (rename("FLAG_P","FLAG_P")==0)// && getSystem()->comm->rank()==getSystem()->irank)
-//std::cout<<" SEND-"<<getSystem()->comm->rank()<<"> "
-//<<sendBufL.size()<<" "<<sendBufR.size()<<" ("<<sendBuf2.size()<<") "
-//<<node1<<" "<<nodeGrid.getNodeNeighborIndex(2 * coord)<<" "<<node2<<" \n";
               if (nodeGrid.getNodePosition(coord) % 2 == 0) {
                 sendParticles(sendBufL, nodeGrid.getNodeNeighborIndex(2 * coord));
                 recvParticles(recvBufR, node1);
@@ -958,24 +759,10 @@ updateLocalParticles( cell1->particles );
                 recvParticles(recvBuf2, node2);
                 sendParticles(sendBuf2, node2);
               }
-//if (rename("FLAG_P","FLAG_P")==0)// && getSystem()->comm->rank()==getSystem()->irank)
-//std::cout<<" RECV-"<<getSystem()->comm->rank()<<"> "
-//<<recvBufL.size()<<" "<<recvBufR.size()<<" ("<<recvBuf2.size()<<") "
-//<<node1<<" "<<nodeGrid.getNodeNeighborIndex(2 * coord)<<" "<<node2<<" \n";
             }
             
 //if (rename("FLAG_P","FLAG_P")==0 && getSystem()->comm->rank()==getSystem()->irank)
 //std::cout<<" DRP3-"<<getSystem()->comm->rank()<<"> \n";
-
-
-              
-              
-//if (rename("FLAG_P","FLAG_P")==0){// && getSystem()->comm->rank()%4==1){
-//p2=lookupRealParticle(6626);
-//if (p2){
-//p2=lookupLocalParticle(6627);
-//if (p2) std::cout<<" ^^2-"<<getSystem()->comm->rank()<<"> "<<p2->id()<<" ("<<p2->position()<<") \n";
-//}}//else std::cout<<" ^^2-"<<getSystem()->comm->rank()<<"\n";}
             // sort received particles to cells
             if (appendParticles(recvBufL, 2 * coord) && coord == 2) finished = false;
             if (appendParticles(recvBufR, 2 * coord + 1) && coord == 2) finished = false;
@@ -993,12 +780,6 @@ updateLocalParticles( cell1->particles );
             recvBufR.resize(0);
             sendBuf2.resize(0);
             recvBuf2.resize(0);
-//if (rename("FLAG_P","FLAG_P")==0){// && getSystem()->comm->rank()%4==1){
-//p2=lookupRealParticle(6626);
-//if (p2){
-//p2=lookupLocalParticle(6627);
-//if (p2) std::cout<<" ^^3-"<<getSystem()->comm->rank()<<"> "<<p2->id()<<" ("<<p2->position()<<") \n";
-//}}//else std::cout<<" ^^3-"<<getSystem()->comm->rank()<<"\n";}
 //if (rename("FLAG_P","FLAG_P")==0 && getSystem()->comm->rank()==getSystem()->irank)
 //std::cout<<" DRP4-"<<getSystem()->comm->rank()<<"> \n";
           }else{
@@ -1039,7 +820,7 @@ updateLocalParticles( cell1->particles );
                       if (pos[0] != pos[0] || pos[1] != pos[1] || pos[2] != pos[2]) {
                         // TODO: error handling
                         LOG4ESPP_ERROR(logger, "particle " << part.id() <<
-                                " has moved to outer space (one or more coordinates are nan)");
+                                " has moved to outer sPace (one or more coordinates are nan)");
                       } else {
                         // particle stays where it is, and will be sorted in the next round
                         finished = false;
@@ -1097,14 +878,17 @@ updateLocalParticles( cell1->particles );
               for (size_t p = 0; p < cell.particles.size(); ++p) {
                   Particle &part = cell.particles[p];
                   real ztmp=part.position()[2];
+//if (rename("FLAG_P","FLAG_P")==0 && getenv("VAR1")!=NULL && part.id()==atoi(getenv("VAR1")))
+//std::cout<<" FOLD-"<<getSystem()->comm->rank()<<"> "<<part.id()<<" ("<<part.position()<<") \n";
                   getSystem()->bc->foldCoordinate(part.position(), part.image(), coord);
                   if (coord==2 && ztmp!=part.position()[2]){
                     real xtmp=part.position()[0]+offs*(part.position()[2]-ztmp)/Lz;
                     int itmp= static_cast<int>(floor(xtmp/Lx));
                     part.position()[0]=xtmp - (itmp+.0)*Lx;
-                    if (getSystem()->shearByCell)
-                      part.velocity()[0]=part.velocity()[0]+2.0*getSystem()->shearRate*(part.position()[2]-ztmp)/Lz;
+  
                   }
+//if (rename("FLAG_P","FLAG_P")==0 && getenv("VAR1")!=NULL && part.id()==atoi(getenv("VAR1")))
+//std::cout<<"   aft> "<<part.id()<<" ("<<part.position()<<") \n";
                   LOG4ESPP_TRACE(logger, "folded coordinate " << coord << " of particle " << part.id());
   
                   if (coord == 2) {
@@ -1119,7 +903,7 @@ updateLocalParticles( cell1->particles );
                               // isnan function is C99 only, x != x is only true if x == nan
                               if (pos[0] != pos[0] || pos[1] != pos[1] || pos[2] != pos[2]) {
                                   LOG4ESPP_ERROR(logger, "particle " << part.id() <<
-                                          " has moved to outer space (one or more coordinates are nan)");
+                                          " has moved to outer spAce (one or more coordinates are nan)");
                               } else {
                                   // particle stays where it is, and will be sorted in the next round
                                   finished = false;
@@ -1154,7 +938,7 @@ updateLocalParticles( cell1->particles );
                               // isnan function is C99 only, x != x is only true if x == nan
                               if (pos[0] != pos[0] || pos[1] != pos[1] || pos[2] != pos[2]) {
                                   LOG4ESPP_ERROR(logger, "particle " << part.id() <<
-                                          " has moved to outer space (one or more coordinates are nan)");
+                                          " has moved to outer spaCe (one or more coordinates are nan)");
                               } else {
                                   // particle stays where it is, and will be sorted in the next round
                                   finished = false;
@@ -1184,6 +968,7 @@ updateLocalParticles( cell1->particles );
                                  recvBufR.capacity()))));
 
     LOG4ESPP_DEBUG(logger, "finished exchanging particles, new send/recv buffer size " << exchangeBufferSize);
+
     LOG4ESPP_DEBUG(logger, "done");
   }
 
