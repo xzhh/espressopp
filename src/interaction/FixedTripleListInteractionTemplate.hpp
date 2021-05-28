@@ -124,7 +124,7 @@ namespace espressopp {
       real Lz=bc.getBoxL()[2];
       real offs = getSystemRef().shearOffset;
       
-      if (offs>.0){
+      if (offs!=.0){
         for (FixedTripleList::TripleList::Iterator it(*fixedtripleList); it.isValid(); ++it) {
           Particle &p1 = *it->first;
           Particle &p2 = *it->second;

@@ -115,12 +115,11 @@ namespace espressopp {
       real ltMaxBondSqr = fixedpairList->getLongtimeMaxBondSqr();
       real offs = getSystemRef().shearOffset;
       
-      if (offs>.0){
+      if (offs!=.0){
         for (FixedPairList::PairList::Iterator it(*fixedpairList); it.isValid(); ++it) {
           Particle &p1 = *it->first;
           Particle &p2 = *it->second;
           Real3D dist;
-          
           Real3D dist_tmp(.0);
           if (p1.position()[2]-p2.position()[2]>Lz/2.0){
             dist_tmp[0]=-offs;
@@ -147,7 +146,18 @@ namespace espressopp {
         		                               << "p" << p2.id() << "(" << p2.position()[0] << "," << p2.position()[1] << "," << p2.position()[2] << ") "
         		                               << "dist=" << sqrt(dist*dist) << " "
         		                               << "force=(" << force[0] << "," << force[1] << "," << force[2] << ")" );
-          }
+                                           
+
+            if (rename("FLAG_V","FLAG_V")==0){
+              getSystemRef().dyadicP_xz+=dist[0]*force[2];
+              getSystemRef().dyadicP_zx+=dist[2]*force[0];
+            }
+          }        
+//if (rename("FLAG_P","FLAG_P")==0 && getenv("VAR1")!=NULL)
+//if (p1.id()==atoi(getenv("VAR1"))||p2.id()==atoi(getenv("VAR1")))
+//std::cout<<"PAIR-"<<getSystemRef().comm->rank()<<"> "<<p1.id()<<" ["<<p1.position()<<"] "
+//<<p2.id()<<" ["<<p2.position()<<"] "
+//<<force<<" \n";
         }
       }else{
         for (FixedPairList::PairList::Iterator it(*fixedpairList); it.isValid(); ++it) {
@@ -188,7 +198,7 @@ namespace espressopp {
       real Lz=bc.getBoxL()[2];
       real offs = getSystemRef().shearOffset;
       
-      if (offs>.0){
+      if (offs!=.0){
         for (FixedPairList::PairList::Iterator it(*fixedpairList);
 	     it.isValid(); ++it) {
           const Particle &p1 = *it->first;
