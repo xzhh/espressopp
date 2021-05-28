@@ -63,8 +63,12 @@ namespace espressopp {
     
     int ghostShift; // Cell shift for the ghost layer over the boundary (only with Lees-Edwards)
     bool shearByCell;
+    int lebcMode;
     real shearRate;
+    real shearTime;
     int irank;
+    real dyadicP_xz;
+    real dyadicP_zx;
 
     bool CommunicatorIsInitialized;
 

@@ -74,9 +74,13 @@ namespace espressopp {
     shearOffset = 0.0;
     NGridSize={1,1,1};
     ghostShift=0;
-    shearByCell = false;
+    //shearByCell = false;
+    lebcMode = 0;
     shearRate = 0.0;
+    shearTime = 0.0;
     irank=0;
+    dyadicP_xz=.0;
+    dyadicP_zx=.0;
   }
 
   void System::setSkin(real _skin){
