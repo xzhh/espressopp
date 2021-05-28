@@ -80,9 +80,9 @@ namespace espressopp {
       //storage::Storage& storage2 = *getSystemRef().storage;
       real Lx = system.bc->getBoxL()[0];
       real Lz = system.bc->getBoxL()[2];
-      int ngrid=storage.getInt3DCellGrid()[2]*system.NGridSize[2];//storage.getInt3DNodeGrid()[2];
+      int ngrid=storage.getInt3DCellGrid()[0]*system.NGridSize[0];//storage.getInt3DNodeGrid()[2];
       system.shearRate=shearRate;
-system.shearByCell=false;//Interal parameter, only turn it ON when running in serial
+//system.shearByCell=false;//Interal parameter, only turn it ON when running in serial
       // signal
       runInit();
 
@@ -117,6 +117,7 @@ system.shearByCell=false;//Interal parameter, only turn it ON when running in se
       LOG4ESPP_INFO(theLogger, "starting main integration loop (nsteps=" << nsteps << ")");
 
 //if (rename("FLAG_P","FLAG_P")==0 && getenv("IRANK")!=NULL) system.irank=atoi(getenv("IRANK"));
+      if (getenv("LMODE")!=NULL) system.lebcMode=atoi(getenv("LMODE"));
 
       for (int i = 0; i < nsteps; i++) {
         LOG4ESPP_INFO(theLogger, "Next step " << i << " of " << nsteps << " starts");
@@ -128,8 +129,8 @@ system.shearByCell=false;//Interal parameter, only turn it ON when running in se
 
         time = timeIntegrate.getElapsedTime();
         LOG4ESPP_INFO(theLogger, "updating positions and velocities")
-//if (rename("FLAG_P","FLAG_P")==0 && system.comm->rank()==system.irank)
-//std::cout<<" INT01> \n";
+//if (rename("FLAG_P","FLAG_P")==0 && system.comm->rank()==system.irank){
+//std::cout<<" INT01> "<<" \n";}
         maxDist += integrate1();
         timeInt1 += timeIntegrate.getElapsedTime() - time;
 
@@ -142,6 +143,8 @@ system.shearByCell=false;//Interal parameter, only turn it ON when running in se
         
         // signal
         aftIntP();
+//if (rename("FLAG_P","FLAG_P")==0 && system.comm->rank()==system.irank){
+//std::cout<<" aftIntP> "<<" \n";}
 
         // remap neighbour cells
 
@@ -204,25 +207,32 @@ system.shearByCell=false;//Interal parameter, only turn it ON when running in se
             timeResort += timeIntegrate.getElapsedTime() - time;
         }
 
+        if (rename("FLAG_V","FLAG_V")==0){
+          system.dyadicP_xz=.0;
+          system.dyadicP_zx=.0;
+        }
+
         LOG4ESPP_INFO(theLogger, "updating forces")
-//if (rename("FLAG_P","FLAG_P")==0 && system.comm->rank()==system.irank)
-//std::cout<<" UPDFC> \n";
         updateForces();
 
+//if (rename("FLAG_P","FLAG_P")==0 && system.comm->rank()==system.irank){
+//std::cout<<" UPDFC> "<<" \n";}
         // signal
         befIntV();
 
         time = timeIntegrate.getElapsedTime();
-//if (rename("FLAG_P","FLAG_P")==0 && system.comm->rank()==system.irank)
-//std::cout<<" INT02> \n";
         if (i==nsteps-1 && rename("FLAG_V","FLAG_V")==0){
           integrate2_extra();
         }else
           integrate2();
         timeInt2 += timeIntegrate.getElapsedTime() - time;
+//if (rename("FLAG_P","FLAG_P")==0 && system.comm->rank()==system.irank){
+//std::cout<<" INT02> "<<" \n";}
 
         // signal
         aftIntV();
+//if (rename("FLAG_P","FLAG_P")==0 && system.comm->rank()==system.irank){
+//std::cout<<" aftIntV> "<<" \n";}
       }
 
       timeRun = timeIntegrate.getElapsedTime();
@@ -311,8 +321,8 @@ system.shearByCell=false;//Interal parameter, only turn it ON when running in se
     {
       System& system = getSystemRef();
       CellList realCells = system.storage->getRealCells();
-//if (rename("FLAG_P","FLAG_P")==0 && getenv("VAR1")!=NULL && system.comm->rank()==0)
-//std:cout<<"===========\nRUN01> TimeStep= "<<getStep()<<" / "<<system.shearOffset<<"\n------\n";
+//if (rename("FLAG_P","FLAG_P")==0 && getenv("VAR1")!=NULL && system.comm->rank()==0){
+//std:cout<<"===========\nRUN01> TimeStep= "<<getStep()<<" / "<<system.shearOffset<<"\n------\n";}
 
       // loop over all particles of the local cells
       int count = 0;
@@ -353,8 +363,7 @@ system.shearByCell=false;//Interal parameter, only turn it ON when running in se
         deltaP=cit->velocity();
         
         // Add shear speed into X dim.
-        if (!system.shearByCell)
-          deltaP[0]+=vshear;
+        deltaP[0]+=vshear;
         deltaP *= dt;
         cit->position() += deltaP;
         sqDist += deltaP * deltaP;
@@ -363,8 +372,8 @@ system.shearByCell=false;//Interal parameter, only turn it ON when running in se
         
 //if (rename("FLAG_P","FLAG_P")==0 && getenv("VAR1")!=NULL)
 //if (cit->id()==atoi(getenv("VAR1")))
-//std::cout<<"INT1-"<<system.comm->rank()<<"> "<<getStep()<<" "<<cit->id()<<" ["<<cit->position()[0]<<","<<cit->position()[1]<<","<<cit->position()[2]<<"] ("
-//<<deltaP[0]<<","<<deltaP[1]<<","<<deltaP[2]<<") "<<static_cast<int>(floor(cit->position()[2]/Lz))<<" \n";
+//std::cout<<"INT1-"<<system.comm->rank()<<"> "<<getStep()<<" "<<cit->id()<<" ["<<cit->position()<<"] ("
+//<<deltaP<<") "<<static_cast<int>(floor(cit->position()[2]/Lz))<<" \n";
         int itmp = static_cast<int>(floor(cit->position()[2]/Lz));
         if (abs(itmp)>1){
           std::cout<<"ERR> "<<cit->id()<<" ["<<cit->position()[0]<<","<<cit->position()[1]<<","<<cit->position()[2]<<"] ("
@@ -384,6 +393,7 @@ system.shearByCell=false;//Interal parameter, only turn it ON when running in se
       offs = shearRate*Lz*(getStep()+1.0)*getTimeStep();
       int xtmp = static_cast<int>(floor(offs/Lx));
       system.shearOffset = offs-(xtmp+.0)*Lx;
+      system.shearTime = (getStep()+1.0)*getTimeStep();
 //if (rename("FLAG_P","FLAG_P")==0 && getenv("VAR1")!=NULL && system.comm->rank()==0)
 //std::cout<<"SHEAR> "<<system.shearOffset<<" \n";
 
@@ -430,11 +440,22 @@ system.shearByCell=false;//Interal parameter, only turn it ON when running in se
       int bin_size=50,ntot=0,*cnt;
       real mo[4]={.0,.0,.0,.0};
       real *vx,*vz,*sx,*tp;
+      Real3D *ori;
+      int nchain=10,clength=20;
+      
+      if (getenv("NCHAIN")!=NULL) 
+        if (atoi(getenv("NCHAIN"))>0) nchain=atoi(getenv("NCHAIN"));
+      if (getenv("CLENGTH")!=NULL) 
+        if (atoi(getenv("CLENGTH"))>0) clength=atoi(getenv("CLENGTH"));
+      
+      real mv2=.0;
+      
       cnt=new int[bin_size];
       vx=new real[bin_size];
       vz=new real[bin_size];
       sx=new real[bin_size];
       tp=new real[bin_size];
+      ori=new Real3D[nchain];
       
       //Init
       for (int i=0;i<bin_size;i++){
@@ -445,12 +466,16 @@ system.shearByCell=false;//Interal parameter, only turn it ON when running in se
         tp[i]=.0;
       }
       real Lz=system.bc->getBoxL()[2];
+      for (int i=0;i<nchain;i++){
+        ori[i]={.0,.0,.0};
+      }
+      
       for(CellListIterator cit(realCells); !cit.isDone(); ++cit) {
         real dtfm = half_dt / cit->mass();
         /* Propagate velocities: v(t+0.5*dt) = v(t) + 0.5*dt * f(t) */
         cit->velocity() += dtfm * cit->force();
-//Need to add propagation of shear speed if necessary
         
+        //Need to add propagation of shear speed if necessary
         real spdShear=shearRate*(cit->position()[2]-Lz/2.0);
         mo[0]+=cit->velocity()[0];
         mo[1]+=cit->velocity()[1];
@@ -469,7 +494,21 @@ system.shearByCell=false;//Interal parameter, only turn it ON when running in se
         
         //Real3D vtmp={spdShear,.0,.0};
         //vtmp=vtmp+cit->velocity();
-        tp[itmp]+=(cit->velocity()[1]*cit->velocity()[1]+cit->velocity()[2]*cit->velocity()[2])*cit->mass()/2.0;
+        tp[itmp]+=(cit->velocity()[1]*cit->velocity()[1])*cit->mass()/1.0;
+        
+        //Collect orientation info. (always first N chains if not specific)
+        int mono_idx=(cit->id()-1)%clength;
+        int chain_idx=(cit->id()-1-mono_idx)/clength;
+        if (chain_idx<nchain){
+          if (mono_idx==0){
+            ori[chain_idx]-=cit->position();
+          }else if (mono_idx==clength-1){
+            ori[chain_idx]+=cit->position();
+          }
+        }
+        
+        //Collect xz-&zx- components from stress Tensor
+        mv2+=cit->mass()*cit->velocity()[0]*cit->velocity()[2];
       }
       
       //Normalization
@@ -480,24 +519,49 @@ system.shearByCell=false;//Interal parameter, only turn it ON when running in se
         sx[i]=sx[i]/(cnt[i]+.0);
         tp[i]=tp[i]/(cnt[i]+.0);
       }
+      for (int i=0;i<nchain;i++){
+        real val_tmp=ori[i].abs();
+        ori[i]=ori[i]/val_tmp;
+      }
+      
+      
       
       //print out
-      std::cout<<"MOMENTUM> "<<getStep()+1<<" "<<mo[0]<<" "<<mo[1]<<" "<<mo[2]<<" "<<mo[3]<<" \n";
-      //std::cout<<"DISTR> "<<getStep()+1<<" 0.0 0.0 \n";
-      for (int i=0;i<bin_size;i++){
-        real z=(i+0.5)/(bin_size+.0);
-        std::cout<<"DISTR> "<<getStep()+1<<" "<<z<<" "<<(cnt[i]+.0)/(ntot+.0)*(bin_size+.0)<<" \n";
-        std::cout<<"VX> "<<getStep()+1<<" "<<z<<" "<<vx[i]<<" \n";
-        std::cout<<"VZ> "<<getStep()+1<<" "<<z<<" "<<vz[i]<<" \n";
-        std::cout<<"VSHEAR> "<<getStep()+1<<" "<<z<<" "<<sx[i]/(shearRate)<<" \n";
-        std::cout<<"TP> "<<getStep()+1<<" "<<z<<" "<<tp[i]<<" \n";
+      if (rename("FLAG_VEL","FLAG_VEL")==0){
+        std::cout<<"MOMENTUM> "<<getStep()+1<<" "<<mo[0]<<" "<<mo[1]<<" "<<mo[2]<<" "<<mo[3]<<" \n";
+        //std::cout<<"DISTR> "<<getStep()+1<<" 0.0 0.0 \n";
+        for (int i=0;i<bin_size;i++){
+          real z=(i+0.5)/(bin_size+.0);
+          std::cout<<"DISTR> "<<getStep()+1<<" "<<z<<" "<<(cnt[i]+.0)/(ntot+.0)*(bin_size+.0)<<" \n";
+          std::cout<<"VX> "<<getStep()+1<<" "<<z<<" "<<vx[i]<<" \n";
+          std::cout<<"VZ> "<<getStep()+1<<" "<<z<<" "<<vz[i]<<" \n";
+          std::cout<<"VSHEAR> "<<getStep()+1<<" "<<z<<" "<<sx[i]/(shearRate)<<" \n";
+          std::cout<<"TP> "<<getStep()+1<<" "<<z<<" "<<tp[i]<<" \n";
+        }
       }
-      //std::cout<<"DISTR> "<<getStep()+1<<" 1.0 0.0 \n";
+      
+      if (rename("FLAG_OAF","FLAG_OAF")==0){
+        for (int i=0;i<nchain;i++){
+          std::cout<<"CHAIN-"<<i+1<<"> "<<getStep()+1<<" "<<ori[i]<<" \n";
+        }
+      }
+      
+      if (rename("FLAG_VIS","FLAG_VIS")==0){
+        real vol=system.bc->getBoxL()[2]*system.bc->getBoxL()[1]*system.bc->getBoxL()[0];
+        std::cout<<"SIGXZ> "<<getStep()+1<<" "<<-1.0/vol*(mv2+system.dyadicP_xz)/shearRate
+        //<<" "<<-1.0/vol*(mv2)/shearRate
+        <<" \n";
+        //std::cout<<"SIGZX> "<<getStep()+1<<" "<<-1.0/vol*(mv2+system.dyadicP_zx)/shearRate<<" \n";
+      }
+      system.dyadicP_xz=.0;
+      system.dyadicP_zx=.0;
+      
       delete cnt;
       delete vx;
       delete vz;
       delete sx;
       delete tp;
+      delete ori;
       
       step++;
     }
