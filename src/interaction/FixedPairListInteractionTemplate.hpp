@@ -110,12 +110,12 @@ namespace espressopp {
     FixedPairListInteractionTemplate < _Potential >::addForces() {
       LOG4ESPP_INFO(_Potential::theLogger, "adding forces of FixedPairList");
       const bc::BC& bc = *getSystemRef().bc;  // boundary conditions
-      real Lx=bc.getBoxL()[0];
-      real Lz=bc.getBoxL()[2];
       real ltMaxBondSqr = fixedpairList->getLongtimeMaxBondSqr();
       real offs = getSystemRef().shearOffset;
       
       if (offs!=.0){
+        real Lx=bc.getBoxL()[0];
+        real Lz=bc.getBoxL()[2];
         for (FixedPairList::PairList::Iterator it(*fixedpairList); it.isValid(); ++it) {
           Particle &p1 = *it->first;
           Particle &p2 = *it->second;
@@ -152,12 +152,7 @@ namespace espressopp {
               getSystemRef().dyadicP_xz+=dist[0]*force[2];
               getSystemRef().dyadicP_zx+=dist[2]*force[0];
             }
-          }        
-//if (rename("FLAG_P","FLAG_P")==0 && getenv("VAR1")!=NULL)
-//if (p1.id()==atoi(getenv("VAR1"))||p2.id()==atoi(getenv("VAR1")))
-//std::cout<<"PAIR-"<<getSystemRef().comm->rank()<<"> "<<p1.id()<<" ["<<p1.position()<<"] "
-//<<p2.id()<<" ["<<p2.position()<<"] "
-//<<force<<" \n";
+          }   
         }
       }else{
         for (FixedPairList::PairList::Iterator it(*fixedpairList); it.isValid(); ++it) {
@@ -189,16 +184,15 @@ namespace espressopp {
     template < typename _Potential > inline real
     FixedPairListInteractionTemplate < _Potential >::
     computeEnergy() {
-
       LOG4ESPP_INFO(theLogger, "compute energy of the FixedPairList pairs");
 
       real e = 0.0;
       const bc::BC& bc = *getSystemRef().bc;  // boundary conditions
-      real Lx=bc.getBoxL()[0];
-      real Lz=bc.getBoxL()[2];
       real offs = getSystemRef().shearOffset;
       
       if (offs!=.0){
+        real Lx=bc.getBoxL()[0];
+        real Lz=bc.getBoxL()[2];
         for (FixedPairList::PairList::Iterator it(*fixedpairList);
 	     it.isValid(); ++it) {
           const Particle &p1 = *it->first;
@@ -373,17 +367,50 @@ namespace espressopp {
 
       real w = 0.0;
       const bc::BC& bc = *getSystemRef().bc;  // boundary conditions
-      for (FixedPairList::PairList::Iterator it(*fixedpairList);
-           it.isValid(); ++it) {
-        const Particle &p1 = *it->first;
-        const Particle &p2 = *it->second;
-
-        Real3D r21;
-        bc.getMinimumImageVectorBox(r21, p1.position(), p2.position());
-        Real3D force;
-        potential->computeColVarWeights(r21, bc);
-        if(potential->_computeForce(force, r21)) {
-          w += r21 * force;
+      real offs = getSystemRef().shearOffset;
+      
+      if (offs!=.0){
+        real Lx=bc.getBoxL()[0];
+        real Lz=bc.getBoxL()[2];
+        for (FixedPairList::PairList::Iterator it(*fixedpairList);
+             it.isValid(); ++it) {
+          const Particle &p1 = *it->first;
+          const Particle &p2 = *it->second;
+  
+          Real3D r21;
+          
+          Real3D dist_tmp(.0);
+          
+          if (p1.position()[2]-p2.position()[2]>Lz/2.0){
+            dist_tmp[0]=-offs;
+            int xtmp=static_cast<int>(floor((p1.position()[0]+dist_tmp[0]-p2.position()[0])/Lx+0.5));
+            dist_tmp[0]-=(xtmp+.0)*Lx;
+          }else if (p1.position()[2]-p2.position()[2]<-Lz/2.0){
+            dist_tmp[0]=offs;
+            int xtmp=static_cast<int>(floor((p1.position()[0]+dist_tmp[0]-p2.position()[0])/Lx+0.5));
+            dist_tmp[0]-=(xtmp+.0)*Lx;
+          }
+          
+          bc.getMinimumImageVectorBox(r21, p1.position()+dist_tmp, p2.position());
+          Real3D force;
+          potential->computeColVarWeights(r21, bc);
+          if(potential->_computeForce(force, r21)) {
+            w += r21 * force;
+          }
+        }
+      }else{
+        for (FixedPairList::PairList::Iterator it(*fixedpairList);
+             it.isValid(); ++it) {
+          const Particle &p1 = *it->first;
+          const Particle &p2 = *it->second;
+  
+          Real3D r21;
+          bc.getMinimumImageVectorBox(r21, p1.position(), p2.position());
+          Real3D force;
+          potential->computeColVarWeights(r21, bc);
+          if(potential->_computeForce(force, r21)) {
+            w += r21 * force;
+          }
         }
       }
 
@@ -398,16 +425,48 @@ namespace espressopp {
 
       Tensor wlocal(0.0);
       const bc::BC& bc = *getSystemRef().bc;  // boundary conditions
-      for (FixedPairList::PairList::Iterator it(*fixedpairList);
-           it.isValid(); ++it) {
-        const Particle &p1 = *it->first;
-        const Particle &p2 = *it->second;
-        Real3D r21;
-        bc.getMinimumImageVectorBox(r21, p1.position(), p2.position());
-        Real3D force;
-        potential->computeColVarWeights(r21, bc);
-        if(potential->_computeForce(force, r21)) {
-          wlocal += Tensor(r21, force);
+      real offs = getSystemRef().shearOffset;
+      
+      if (offs!=.0){
+        real Lx=bc.getBoxL()[0];
+        real Lz=bc.getBoxL()[2];
+        for (FixedPairList::PairList::Iterator it(*fixedpairList);
+             it.isValid(); ++it) {
+          const Particle &p1 = *it->first;
+          const Particle &p2 = *it->second;
+          Real3D r21;
+          
+          Real3D dist_tmp(.0);
+          
+          if (p1.position()[2]-p2.position()[2]>Lz/2.0){
+            dist_tmp[0]=-offs;
+            int xtmp=static_cast<int>(floor((p1.position()[0]+dist_tmp[0]-p2.position()[0])/Lx+0.5));
+            dist_tmp[0]-=(xtmp+.0)*Lx;
+          }else if (p1.position()[2]-p2.position()[2]<-Lz/2.0){
+            dist_tmp[0]=offs;
+            int xtmp=static_cast<int>(floor((p1.position()[0]+dist_tmp[0]-p2.position()[0])/Lx+0.5));
+            dist_tmp[0]-=(xtmp+.0)*Lx;
+          }
+          
+          bc.getMinimumImageVectorBox(r21, p1.position()+dist_tmp, p2.position());
+          Real3D force;
+          potential->computeColVarWeights(r21, bc);
+          if(potential->_computeForce(force, r21)) {
+            wlocal += Tensor(r21, force);
+          }
+        }
+      }else{
+        for (FixedPairList::PairList::Iterator it(*fixedpairList);
+             it.isValid(); ++it) {
+          const Particle &p1 = *it->first;
+          const Particle &p2 = *it->second;
+          Real3D r21;
+          bc.getMinimumImageVectorBox(r21, p1.position(), p2.position());
+          Real3D force;
+          potential->computeColVarWeights(r21, bc);
+          if(potential->_computeForce(force, r21)) {
+            wlocal += Tensor(r21, force);
+          }
         }
       }
 
@@ -421,7 +480,7 @@ namespace espressopp {
     FixedPairListInteractionTemplate < _Potential >::
     computeVirialTensor(Tensor& w, real z){
       LOG4ESPP_INFO(theLogger, "compute the virial tensor for the FixedPair List");
-
+      
       Tensor wlocal(0.0);
       const bc::BC& bc = *getSystemRef().bc;  // boundary conditions
       for (FixedPairList::PairList::Iterator it(*fixedpairList);
